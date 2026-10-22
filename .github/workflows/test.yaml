@@ -1,0 +1,45 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck
+        run: shellcheck src/*/*.sh test/*/*.sh scripts/*.sh
+      - name: validate devcontainer-feature.json
+        uses: devcontainers/action@v1
+        with:
+          validate-only: "true"
+          base-path-to-features: ./src
+
+  features:
+    runs-on: ubuntu-24.04
+    outputs:
+      list: ${{ steps.list.outputs.list }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: list
+        run: echo "list=$(ls src | jq -R . | jq -sc .)" >> "$GITHUB_OUTPUT"
+
+  install:
+    needs: features
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        feature: ${{ fromJSON(needs.features.outputs.list) }}
+        image:
+          - debian:bookworm-slim
+          - ubuntu:24.04
+          - mcr.microsoft.com/devcontainers/base:ubuntu
+        user: [root, dev]
+    steps:
+      - uses: actions/checkout@v4
+      - run: scripts/test-feature.sh "${{ matrix.feature }}" "${{ matrix.image }}" "${{ matrix.user }}"

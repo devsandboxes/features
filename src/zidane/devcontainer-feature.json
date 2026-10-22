@@ -1,0 +1,53 @@
+{
+    "id": "zidane",
+    "version": "1.0.0",
+    "name": "zidane",
+    "description": "Installs the zidane agent TUI and persists its config, state and per-instance data under devsandbox's shared volumes. devsandbox only: mounts use ${sharedVolumes} and ${instance}.",
+    "documentationURL": "https://github.com/devsandboxes/features/tree/main/src/zidane",
+    "options": {
+        "version": {
+            "type": "string",
+            "proposals": ["latest"],
+            "default": "latest",
+            "description": "zidane-tui version to install (an npm version or dist-tag)."
+        }
+    },
+    "containerEnv": {
+        "ZIDANE_DAEMON_SOCKET": "/var/lib/devsandbox/zidane/data/daemon/daemon.sock"
+    },
+    "mounts": [
+        {
+            "source": "${sharedVolumes}/zidane-config",
+            "target": "/var/lib/devsandbox/zidane/config",
+            "type": "bind"
+        },
+        {
+            "source": "${sharedVolumes}/zidane/${instance}",
+            "target": "/var/lib/devsandbox/zidane/data",
+            "type": "bind"
+        },
+        {
+            "source": "${sharedVolumes}/zidane-state",
+            "target": "/var/lib/devsandbox/zidane/state",
+            "type": "bind"
+        },
+        {
+            "source": "${sharedVolumes}/zidane-cache/${instance}",
+            "target": "/var/lib/devsandbox/zidane/cache",
+            "type": "bind"
+        },
+        {
+            "source": "${sharedVolumes}/zidane-skills",
+            "target": "/var/lib/devsandbox/zidane/skills",
+            "type": "bind"
+        },
+        {
+            "source": "${sharedVolumes}/zidane-extensions",
+            "target": "/var/lib/devsandbox/zidane/extensions",
+            "type": "bind"
+        }
+    ],
+    "installsAfter": [
+        "ghcr.io/devcontainers/features/common-utils"
+    ]
+}

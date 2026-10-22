@@ -1,0 +1,25 @@
+name: release
+
+# Publishes every feature under src/ to ghcr.io/devsandboxes/features/<id>.
+# A version already in the registry is skipped, so bump `version` in a
+# feature's devcontainer-feature.json to release it.
+on:
+  push:
+    branches: [main]
+    paths: ["src/**"]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: devcontainers/action@v1
+        with:
+          publish-features: "true"
+          base-path-to-features: ./src
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
