@@ -14,7 +14,7 @@ failed=0
 
 check "zidane on PATH" 'command -v zidane >/dev/null'
 check "zidane runs" 'zidane --version >/dev/null'
-check "daemon socket env" '[ "$ZIDANE_DAEMON_SOCKET" = /var/lib/devsandbox/zidane/data/daemon/daemon.sock ]'
+check "daemon socket env" "[ \"\$ZIDANE_DAEMON_SOCKET\" = /var/lib/devsandbox/zidane/data/daemon/daemon.sock ]"
 for pair in \
     .config/zidane:config \
     .local/share/zidane:data \

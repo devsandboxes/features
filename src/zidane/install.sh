@@ -55,7 +55,9 @@ meta=$(curl -fsSL "$REGISTRY/$package/$VERSION") \
 # The per-version document is one JSON object; these keys appear once in it.
 tarball=$(printf '%s' "$meta" | sed -n 's/.*"tarball":"\([^"]*\)".*/\1/p')
 shasum=$(printf '%s' "$meta" | sed -n 's/.*"shasum":"\([^"]*\)".*/\1/p')
-[ -n "$tarball" ] && [ -n "$shasum" ] || fail "unexpected registry answer for $package@$VERSION"
+if [ -z "$tarball" ] || [ -z "$shasum" ]; then
+    fail "unexpected registry answer for $package@$VERSION"
+fi
 
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
