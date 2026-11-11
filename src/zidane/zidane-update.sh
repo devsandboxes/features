@@ -73,7 +73,9 @@ rm -f "$tmp/version"
 [ -d "$SHARED/$version" ] || mv -T "$tmp" "$SHARED/$version" 2>/dev/null || true
 
 previous=""
-[ -r "$SHARED/current" ] && read -r previous < "$SHARED/current" || true
+if [ -r "$SHARED/current" ]; then
+    read -r previous < "$SHARED/current" || true
+fi
 printf '%s\n' "$version" > "$SHARED/.current.$$"
 mv -f "$SHARED/.current.$$" "$SHARED/current"
 
