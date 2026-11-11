@@ -1,13 +1,14 @@
 #!/bin/sh
 # Installs zidane-tui's prebuilt binary from the npm registry (no node needed)
-# and links the remote user's zidane dirs to the fixed mount targets declared
-# in devcontainer-feature.json. Mount targets can't depend on the user's home
+# into /usr/local/lib/zidane, the `zidane` launcher and `zidane-update` (the
+# launcher runs the version zidane-update made current in the shared bin dir,
+# else this one), and links the remote user's zidane dirs to the fixed mount
+# targets declared in devcontainer-feature.json. Mount targets can't depend on the user's home
 # (feature mounts are static), hence the symlinks.
 set -eu
 
 VERSION="${VERSION:-latest}"
 MOUNT_ROOT=/var/lib/devsandbox/zidane
-REGISTRY=https://registry.npmjs.org
 
 fail() {
     echo "zidane feature: $*" >&2
@@ -38,9 +39,10 @@ fi
 
 # --- platform ---------------------------------------------------------------
 
+# zidane-update picks the package by arch; refused here too, before anything
+# is installed.
 case "$(uname -m)" in
-    x86_64 | amd64) arch=x64 ;;
-    aarch64 | arm64) arch=arm64 ;;
+    x86_64 | amd64 | aarch64 | arm64) ;;
     *) fail "no zidane binary for $(uname -m) (linux x64 and arm64 only)" ;;
 esac
 if ldd --version 2>&1 | grep -qi musl; then
@@ -49,23 +51,9 @@ fi
 
 # --- binary -----------------------------------------------------------------
 
-package="zidane-tui-linux-$arch"
-meta=$(curl -fsSL "$REGISTRY/$package/$VERSION") \
-    || fail "cannot resolve $package@$VERSION from $REGISTRY"
-# The per-version document is one JSON object; these keys appear once in it.
-tarball=$(printf '%s' "$meta" | sed -n 's/.*"tarball":"\([^"]*\)".*/\1/p')
-shasum=$(printf '%s' "$meta" | sed -n 's/.*"shasum":"\([^"]*\)".*/\1/p')
-if [ -z "$tarball" ] || [ -z "$shasum" ]; then
-    fail "unexpected registry answer for $package@$VERSION"
-fi
-
-tmp=$(mktemp -d)
-trap 'rm -rf "$tmp"' EXIT
-echo "zidane feature: downloading $tarball"
-curl -fsSL -o "$tmp/pkg.tgz" "$tarball"
-echo "$shasum  $tmp/pkg.tgz" | sha1sum -c - >/dev/null || fail "checksum mismatch for $tarball"
-tar -xzf "$tmp/pkg.tgz" -C "$tmp" package/bin/zidane
-install -m 0755 "$tmp/package/bin/zidane" /usr/local/bin/zidane
+install -m 0755 zidane-update.sh /usr/local/bin/zidane-update
+/usr/local/bin/zidane-update --bake "$VERSION"
+install -m 0755 zidane-launcher.sh /usr/local/bin/zidane
 
 # --- dirs -------------------------------------------------------------------
 
@@ -76,7 +64,7 @@ group=$(id -gn "$user")
 
 # The mount targets, for a container started without them (plain devcontainer
 # CLI, tests): zidane still works, just without persistence.
-for d in config data state cache skills extensions; do
+for d in config data state cache skills extensions bin; do
     install -d -o "$user" -g "$group" "$MOUNT_ROOT/$d"
 done
 
@@ -107,4 +95,4 @@ link .cache/zidane "$MOUNT_ROOT/cache"
 link .agents/skills "$MOUNT_ROOT/skills"
 link .agents/extensions "$MOUNT_ROOT/extensions"
 
-echo "zidane feature: installed $(/usr/local/bin/zidane --version 2>/dev/null || echo "$package@$VERSION") for $user"
+echo "zidane feature: installed zidane $(cat /usr/local/lib/zidane/version) for $user"

@@ -9,13 +9,13 @@ devsandbox's `${sharedVolumes}` and `${instance}` variables.
 
 | Feature                    | What it does                                          |
 | -------------------------- | ----------------------------------------------------- |
-| [`zidane`](src/zidane)     | zidane agent TUI, with persisted config, state, data |
+| [`zidane`](src/zidane)     | zidane agent TUI, with persisted config, state, data; `zidane-update` updates every sandbox |
 
 ```yaml
 sandbox:
   web:
     features:
-      ghcr.io/devsandboxes/features/zidane:1: {}
+      ghcr.io/devsandboxes/features/zidane:2: {}
 ```
 
 ## Layout
