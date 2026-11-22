@@ -13,12 +13,26 @@ devsandbox's `${sharedVolumes}` and `${instance}` variables.
 | [`sentry`](src/sentry)     | sentry-cli, its token kept on the host by devsandbox's credential broker (`devsandbox login`) |
 | [`gh`](src/gh)             | GitHub CLI, its token kept on the host by devsandbox's credential broker and fenced to the sandbox's repos; `gh-update` updates every sandbox |
 
-```yaml
-sandbox:
-  web:
-    features:
-      ghcr.io/devsandboxes/features/zidane:2: {}
+In `devsandboxes.toml`, one sandbox with every feature:
+
+```toml
+[sandbox.web.features."ghcr.io/devsandboxes/features/zidane:2"]
+version = "latest"
+
+[sandbox.web.features."ghcr.io/devsandboxes/features/sentry:1"]
+version = "latest"
+
+[sandbox.web.features."ghcr.io/devsandboxes/features/gh:1"]
+version = "latest"
+
+# optional: what the sandbox's github credential may reach beyond its own repos
+[sandbox.web.access.github]
+repos = ["acme/shared-lib"]
 ```
+
+`sentry` and `gh` need their credential on the host before the first run:
+`devsandbox login <name> --feature ghcr.io/devsandboxes/features/<id>:1`
+(see each feature's README).
 
 ## Layout
 
