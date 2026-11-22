@@ -1,63 +1,80 @@
 # sentry
 
-Installs [sentry-cli](https://github.com/getsentry/sentry-cli) (Sentry's static
-Linux binary, checked against the sha256 its release registry lists) and claims
-a devsandbox `sentry` credential, so sentry-cli works in the sandbox without
-the token ever being in it. devsandbox keeps it updated in every sandbox.
+Installs [Sentry's CLI](https://cli.sentry.dev) (`sentry`) and gives the
+sandbox Sentry access without the token ever being in it. devsandbox keeps
+sentry up to date in every sandbox.
 
-devsandbox only: the claim is read by devsandbox (`customizations.devsandbox`);
-elsewhere you get a plain sentry-cli with no token.
+devsandbox only: elsewhere you get a plain sentry with no token.
 
 ```yaml
-features:
-  ghcr.io/devsandboxes/features/sentry:1:
-    version: latest
+template:
+  base:
+    features:
+      ghcr.io/devsandboxes/features/sentry:1: {}
 ```
 
 ## How it's brokered
 
-The sandbox gets a phantom token (`SENTRY_AUTH_TOKEN`, `~/.sentryclirc`) and
-`SENTRY_URL` pointing at a loopback port. sentry-cli's calls go through that
-port to devsandbox's credential broker on the host, which checks each call
-against the claim's scopes, swaps the phantom for the real token and calls
-Sentry. The upload URLs Sentry answers with come back pointed at the loopback
-too, so source-map and debug-file uploads take the same path. Every call is a
-line in the host's `access.log`.
+The sandbox holds a phantom token (`SENTRY_AUTH_TOKEN`). sentry talks to
+sentry.io and its regions (`us.sentry.io`, `de.sentry.io`) through
+devsandbox, which swaps the phantom for the real token on each call, after
+checking the call against the sandbox's scopes. sentry's telemetry and
+update check are off.
 
-Before the first sandbox with this feature, store the token on the host (the
-credential's name is yours; `--profile` limits it to sandboxes of that
-profile):
+Log the token in once, on the host. With Sentry's own login page (the
+device flow sentry's `auth login` uses):
 
 ```sh
-devsandbox login sentry-work --feature ghcr.io/devsandboxes/features/sentry:1 --profile work
+devsandbox login sentry --feature ghcr.io/devsandboxes/features/sentry:1 --method device
 ```
 
-It shows the claim, asks you to approve it, and reads the token (pasted, or
-piped with `--yes`). Without `--profile` it serves every profile. When a
-later version of this feature changes the claim, `devsandbox run` refuses it
-until you approve the change with `devsandbox access approve sentry-work`.
+Or with a user auth token (`sntryu_…`, from Sentry's _Personal Tokens_
+page, which the login opens):
 
-## The token
+```sh
+devsandbox login sentry --feature ghcr.io/devsandboxes/features/sentry:1 --method paste
+```
 
-An internal integration's token: in Sentry, Settings > Developer Settings >
-Custom Integrations > Create New Integration > Internal Integration, then its
-token. It's bound to one organization; give it these permissions:
+It shows which account the token belongs to before storing it. When a
+feature update changes what the token may be used for, `devsandbox run` asks
+you to approve it.
 
-| Permission    | Level | For                                              |
-| ------------- | ----- | ------------------------------------------------ |
-| Release       | Admin | `releases`, source-map and debug-file uploads    |
-| Project       | Write | debug-file uploads                               |
-| Issue & Event | Read  | reading issues and events                        |
-| Organization  | Read  | the organization and project lookups             |
+## Scopes
 
-Narrow what a sandbox may do with `access.sentry` in its devsandbox config
-(`scopes`: `org.read`, `releases.read`, `releases.write`, `uploads`,
-`issues.read`). Token-minting routes (org auth tokens, integration tokens,
-project client keys) are refused whatever the grant.
+Every scope is allowed unless the sandbox lists the ones it may use:
+
+| Scope              | Used by                                                  |
+| ------------------ | -------------------------------------------------------- |
+| `org.read`         | orgs, projects, teams, repos, integrations, `auth`       |
+| `dsn.read`         | `project view`, DSN lookups                              |
+| `issues.read`      | `issue list`/`view`, `event view`                        |
+| `events.read`      | `explore`, `trace`, `span`, `log`, `replay`              |
+| `issues.write`     | resolving, assigning and linking issues                  |
+| `seer`             | `issue explain`/`plan` (starting Seer)                   |
+| `releases.read`    | `release list`/`view`                                    |
+| `releases.write`   | `release create`/`finalize`/`deploy`/`delete`            |
+| `uploads`          | `sourcemap`, `debug-files`, `build upload`               |
+| `projects.write`   | `project create` (and its team), code mappings           |
+| `alerts.read`      | `alert` and `monitor` reads                              |
+| `alerts.write`     | creating, editing and deleting alerts                    |
+| `dashboards.read`  | `dashboard list`/`view`                                  |
+| `dashboards.write` | creating and editing dashboards                          |
+
+`sentry api` reaches only the routes of those scopes. Never allowed:
+deleting organizations, projects, teams or integrations, auth tokens and
+client keys, and starting trials.
+
+```yaml
+sandbox:
+  web:
+    access:
+      sentry:
+        scopes: [org.read, issues.read, events.read]
+```
 
 ## Updating
 
-devsandbox updates sentry-cli in every sandbox weekly, with no setup and no
+devsandbox updates sentry in every sandbox weekly, with no setup and no
 rebuild. To change how often (or `never`):
 
 ```yaml
@@ -69,22 +86,20 @@ To update now, or roll back to a release (with `sentry: never` to keep it):
 
 ```sh
 devsandbox update sentry
-devsandbox update sentry 3.8.1
+devsandbox update sentry 0.49.0
 ```
 
-Sandboxes can't change their sentry-cli: the update is mounted read-only.
+Sandboxes can't change their sentry: the update is mounted read-only, and
+`sentry cli upgrade` points to `devsandbox update sentry`.
 
 ## Options
 
 | Option    | Default  | Description                                        |
 | --------- | -------- | -------------------------------------------------- |
-| `version` | `latest` | sentry-cli version baked into the image (a release like `3.8.2`, or `latest`). |
-
-`SENTRY_DISABLE_UPDATE_CHECK` is set: sentry-cli changes with devsandbox's
-update, not with `sentry-cli update`.
+| `version` | `latest` | sentry version baked into the image (a release like `0.50.0`, or `latest`). |
 
 ## Platforms
 
-Linux x86_64, aarch64, armv7 and i686 (the binary is static, so musl images
-work too). `curl`, `ca-certificates` and `coreutils` are installed with apt or
-apk when missing.
+Linux x86_64 and aarch64 with glibc 2.28 or later; musl images (Alpine) are
+refused. `curl`, `gzip`, `ca-certificates`, `coreutils`, `libstdc++6` and
+`libatomic1` are installed with apt when missing.

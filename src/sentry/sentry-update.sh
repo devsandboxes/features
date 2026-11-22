@@ -2,18 +2,18 @@
 # sentry-update <shared bin dir> [version]: the command of the feature's
 # `sentry` update, which devsandbox runs (`devsandbox update sentry [version]`,
 # and on its schedule) in a throwaway container from the sandbox's image with
-# only the dir writable. Puts sentry-cli <version> (a release like 3.8.2,
-# default latest) in <dir>/<version>/sentry-cli, checked against the sha256
+# only the dir writable. Puts sentry <version> (a release like 0.50.0, default
+# latest) in <dir>/<version>/sentry, its .gz asset checked against the sha256
 # Sentry's release registry lists for it, and makes it the one every
-# sandbox's `sentry-cli` launcher runs from its next call. Sandboxes mount the
-# dir read-only. A version also rolls back.
+# sandbox's `sentry` launcher runs from its next call. Sandboxes mount the dir
+# read-only. A version also rolls back.
 #
 # sentry-update --bake <version>: what install.sh runs at image build, as
-# root: the image's own sentry-cli in /usr/local/lib/sentry, the launcher's
+# root: the image's own sentry in /usr/local/lib/sentry, the launcher's
 # fallback.
 set -eu
 
-REGISTRY=https://release-registry.services.sentry.io/apps/sentry-cli
+REGISTRY=https://release-registry.services.sentry.io/apps/sentry
 BAKED=/usr/local/lib/sentry
 
 fail() {
@@ -36,33 +36,49 @@ sha256() {
     fi
 }
 
-# fetch <version or latest> <dir>: sentry-cli into <dir>/sentry-cli, the
-# resolved version into <dir>/version.
+# The binary is a Node single-executable built against glibc 2.28.
+check_libc() {
+    for loader in /lib/ld-musl-*; do
+        [ -e "$loader" ] && fail "sentry ships no musl build (Alpine and the like): use a glibc-based image"
+    done
+    glibc=$(getconf GNU_LIBC_VERSION 2>/dev/null) || fail "no glibc found: sentry needs glibc 2.28 or later"
+    glibc=${glibc#glibc }
+    major=${glibc%%.*}
+    minor=${glibc#*.}
+    minor=${minor%%.*}
+    if [ "$major" -lt 2 ] || { [ "$major" -eq 2 ] && [ "$minor" -lt 28 ]; }; then
+        fail "glibc $glibc is too old: sentry needs 2.28 or later"
+    fi
+}
+
+# fetch <version or latest> <dir>: sentry into <dir>/sentry, the resolved
+# version into <dir>/version.
 fetch() {
     case "$(uname -m)" in
-        x86_64 | amd64) arch=x86_64 ;;
-        aarch64 | arm64) arch=aarch64 ;;
-        armv7l | armv7) arch=armv7 ;;
-        i686 | i386) arch=i686 ;;
-        *) fail "no sentry-cli binary for $(uname -m)" ;;
+        x86_64 | amd64) arch=x64 ;;
+        aarch64 | arm64) arch=arm64 ;;
+        *) fail "sentry ships Linux binaries for x86_64 and aarch64 only, not $(uname -m)" ;;
     esac
+    check_libc
     spec=${1#v}
-    valid_version "$spec" || fail "bad version \`$spec\` (latest or a release like 3.8.2)"
-    asset="sentry-cli-Linux-$arch"
-    release=$(curl -fsSL "$REGISTRY/$spec") || fail "no sentry-cli release \`$spec\` in $REGISTRY"
+    valid_version "$spec" || fail "bad version \`$spec\` (latest or a release like 0.50.0)"
+    asset="sentry-linux-$arch.gz"
+    release=$(curl -fsSL "$REGISTRY/$spec") || fail "no sentry release \`$spec\` in $REGISTRY"
     version=$(printf '%s' "$release" | sed -n 's/.*"version":"\([^"]*\)".*/\1/p')
     valid_version "$version" || fail "the registry's release \`$spec\` names a bad version \`$version\`"
     # The `files` entry: {"checksums":{"sha256-hex":"…"},"url":"…"}.
     entry=$(printf '%s' "$release" \
         | sed -n "s/.*\"$asset\":{\"checksums\":{\"sha256-hex\":\"\([0-9a-f]\{64\}\)\"},\"url\":\"\(https:[^\"]*\)\"}.*/\1 \2/p")
-    [ -n "$entry" ] || fail "sentry-cli $version lists no $asset with a sha256"
+    [ -n "$entry" ] || fail "sentry $version lists no $asset with a sha256"
     want=${entry%% *}
     url=${entry#* }
     echo "sentry-update: downloading $url" >&2
-    curl -fsSL -o "$2/sentry-cli.part" "$url" || fail "cannot download $url"
-    [ "$(sha256 "$2/sentry-cli.part")" = "$want" ] || fail "$url doesn't match its sha256 $want"
-    chmod 0755 "$2/sentry-cli.part"
-    mv -f "$2/sentry-cli.part" "$2/sentry-cli"
+    curl -fsSL -o "$2/sentry.gz" "$url" || fail "cannot download $url"
+    [ "$(sha256 "$2/sentry.gz")" = "$want" ] || fail "$url doesn't match its sha256 $want"
+    gunzip -c "$2/sentry.gz" > "$2/sentry.part" || fail "cannot unpack $asset"
+    rm -f "$2/sentry.gz"
+    chmod 0755 "$2/sentry.part"
+    mv -f "$2/sentry.part" "$2/sentry"
     printf '%s\n' "$version" > "$2/version"
 }
 
@@ -97,7 +113,7 @@ printf '%s\n' "$version" > "$shared/.current.$$"
 mv -f "$shared/.current.$$" "$shared/current"
 
 # Keep the new and the previous version (a launcher may be about to start
-# it); older ones go. Running sentry-cli processes keep theirs until they exit.
+# it); older ones go. Running sentry processes keep theirs until they exit.
 for dir in "$shared"/*/; do
     name=$(basename "$dir")
     [ "$name" = "$version" ] || [ "$name" = "$previous" ] || rm -rf "$dir"
@@ -106,5 +122,5 @@ done
 if [ "$previous" = "$version" ]; then
     echo "sentry-update: $version already current"
 else
-    echo "sentry-update: ${previous:-none} -> $version (every sandbox, from its next sentry-cli call)"
+    echo "sentry-update: ${previous:-none} -> $version (every sandbox, from its next sentry call)"
 fi
