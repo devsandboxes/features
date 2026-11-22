@@ -9,8 +9,8 @@ devsandbox's `${sharedVolumes}` and `${instance}` variables.
 
 | Feature                    | What it does                                          |
 | -------------------------- | ----------------------------------------------------- |
-| [`zidane`](src/zidane)     | zidane agent TUI, with persisted config, state, data; `zidane-update` updates every sandbox |
-| [`sentry`](src/sentry)     | sentry-cli, its token kept on the host by devsandbox's credential broker (`devsandbox login`) |
+| [`zidane`](src/zidane)     | zidane agent TUI, with persisted config, state, data; updated automatically by devsandbox |
+| [`sentry`](src/sentry)     | sentry-cli, its token kept on the host by devsandbox's credential broker (`devsandbox login`); updated automatically by devsandbox |
 | [`gh`](src/gh)             | GitHub CLI, its token kept on the host by devsandbox's credential broker and fenced to the sandbox's repos; updated automatically by devsandbox |
 
 One sandbox with every feature:
