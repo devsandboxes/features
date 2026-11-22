@@ -48,10 +48,18 @@ piped with `--yes`). When a later version of this feature changes the claim,
   only the repos sandboxes may touch (one owner per token) and the
   permissions below. An expiry header GitHub sends back is recorded, and
   `devsandbox access ls` warns before it.
-- A **GitHub App user token** (`ghu_…`), for repos spanning owners, pasted
-  the same way. Logging one in with the app's device flow
-  (`--method device --client-id <your app>`) isn't offered by this version of
-  the claim yet.
+- A **GitHub App user token** (`ghu_…`), for repos spanning owners, from a
+  GitHub App of your own: enable "Device flow" in its settings, give it the
+  repository permissions below and install it on the repos sandboxes may
+  touch. Log in with its device flow:
+
+  ```sh
+  devsandbox login github --feature ghcr.io/devsandboxes/features/gh:1 \
+    --method device --client-id <your GitHub App's client id>
+  ```
+
+  App user tokens expire after 8 hours and refresh for 6 months; the broker
+  renews them. A `ghu_…` token can also be pasted.
 
 Classic tokens and gh's own OAuth token (`ghp_`, `gho_`) reach every repo you
 can, and are refused.

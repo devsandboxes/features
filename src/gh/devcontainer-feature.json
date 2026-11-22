@@ -1,6 +1,6 @@
 {
     "id": "gh",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "name": "gh, brokered and repo-fenced by devsandbox",
     "description": "Installs the GitHub CLI and claims a devsandbox `github` credential: gh, git and anything else talking to GitHub reach it through devsandbox's credential broker, fenced to the sandbox's own repos, so the sandbox holds a phantom token, never the real one. gh-update updates gh in every sandbox without a rebuild. devsandbox only: log the credential in with `devsandbox login`.",
     "documentationURL": "https://github.com/devsandboxes/features/tree/main/src/gh",
@@ -43,6 +43,11 @@
                         {
                             "method": "paste",
                             "hint": "a fine-grained personal access token (github_pat_…) selecting the sandboxes' repos, or a GitHub App user token (ghu_…)"
+                        },
+                        {
+                            "method": "device",
+                            "deviceUrl": "https://github.com/login/device/code",
+                            "tokenUrl": "https://github.com/login/oauth/access_token"
                         }
                     ],
                     "check": "GET /user",
