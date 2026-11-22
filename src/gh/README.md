@@ -37,16 +37,18 @@ devsandbox login github --feature ghcr.io/devsandboxes/features/gh:1 --profile w
 ```
 
 It shows the claim, asks you to approve it, and reads the token (pasted, or
-piped with `--yes`). When a later version of this feature changes the claim,
+piped with `--yes`). Before storing it, it calls `GET /user` and says whose
+token it is (`logged in … as alice`); a token GitHub refuses isn't stored. When a later version of this feature changes the claim,
 `devsandbox run` refuses it until you approve the change with
 `devsandbox access approve github`.
 
 ## The token
 
-- A **fine-grained personal access token** (`github_pat_…`): Settings >
-  Developer settings > Personal access tokens > Fine-grained tokens. Select
-  only the repos sandboxes may touch (one owner per token) and the
-  permissions below. An expiry header GitHub sends back is recorded, and
+- A **fine-grained personal access token** (`github_pat_…`): on a terminal,
+  the paste login opens GitHub's token page with the permissions below
+  already filled in (`--owner <org>` fills in the resource owner: check it
+  before generating, GitHub may still create it under your user). Select
+  only the repos sandboxes may touch (one owner per token). An expiry header GitHub sends back is recorded, and
   `devsandbox access ls` warns before it.
 - A **GitHub App user token** (`ghu_…`), for repos spanning owners, from a
   GitHub App of your own: enable "Device flow" in its settings, give it the
@@ -61,8 +63,22 @@ piped with `--yes`). When a later version of this feature changes the claim,
   App user tokens expire after 8 hours and refresh for 6 months; the broker
   renews them. A `ghu_…` token can also be pasted.
 
-Classic tokens and gh's own OAuth token (`ghp_`, `gho_`) reach every repo you
-can, and are refused.
+- **gh's own OAuth token** (`gho_…`), only as an opt-in, for orgs where you
+  can neither install an app nor get a fine-grained token approved. It
+  reaches every repo your account can: the broker still refuses writes
+  outside the sandbox's repos, but GraphQL reads aren't fenced. Logs in
+  with GitHub CLI's device flow (`repo read:org`), or `gh auth token` piped
+  to `--method paste`:
+
+  ```sh
+  devsandbox login github --feature ghcr.io/devsandboxes/features/gh:1 --broad
+  ```
+
+  GitHub keeps a limited number of tokens per user and app, so this login
+  and `gh auth login` on other machines can revoke each other's oldest.
+
+Classic personal access tokens (`ghp_`) reach every repo you can, and are
+refused.
 
 | Permission    | Level | For                                              |
 | ------------- | ----- | ------------------------------------------------ |
