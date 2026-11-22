@@ -1,9 +1,9 @@
 # sentry
 
-Installs [sentry-cli](https://github.com/getsentry/sentry-cli)
-(`/usr/local/bin/sentry-cli`, Sentry's static Linux binary, checked against the
-sha256 its release registry lists) and claims a devsandbox `sentry` credential,
-so sentry-cli works in the sandbox without the token ever being in it.
+Installs [sentry-cli](https://github.com/getsentry/sentry-cli) (Sentry's static
+Linux binary, checked against the sha256 its release registry lists) and claims
+a devsandbox `sentry` credential, so sentry-cli works in the sandbox without
+the token ever being in it. devsandbox keeps it updated in every sandbox.
 
 devsandbox only: the claim is read by devsandbox (`customizations.devsandbox`);
 elsewhere you get a plain sentry-cli with no token.
@@ -55,14 +55,33 @@ Narrow what a sandbox may do with `access.sentry` in its devsandbox config
 `issues.read`). Token-minting routes (org auth tokens, integration tokens,
 project client keys) are refused whatever the grant.
 
+## Updating
+
+devsandbox updates sentry-cli in every sandbox weekly, with no setup and no
+rebuild. To change how often (or `never`):
+
+```yaml
+updates:
+  sentry: 1d
+```
+
+To update now, or roll back to a release (with `sentry: never` to keep it):
+
+```sh
+devsandbox update sentry
+devsandbox update sentry 3.8.1
+```
+
+Sandboxes can't change their sentry-cli: the update is mounted read-only.
+
 ## Options
 
 | Option    | Default  | Description                                        |
 | --------- | -------- | -------------------------------------------------- |
-| `version` | `latest` | sentry-cli version to install (a release like `3.8.2`, or `latest`). |
+| `version` | `latest` | sentry-cli version baked into the image (a release like `3.8.2`, or `latest`). |
 
-`SENTRY_DISABLE_UPDATE_CHECK` is set: the image's sentry-cli changes with this
-option, not with `sentry-cli update`.
+`SENTRY_DISABLE_UPDATE_CHECK` is set: sentry-cli changes with devsandbox's
+update, not with `sentry-cli update`.
 
 ## Platforms
 
