@@ -28,6 +28,7 @@ if [ "${1:-}" = cli ] && [ "${2:-}" = upgrade ]; then
     fi
 fi
 
+bin="$BAKED/sentry"
 if [ -e "$SHARED/current" ]; then
     if [ -w "$SHARED" ]; then
         # Anything in the sandbox could have put that binary there.
@@ -35,10 +36,23 @@ if [ -e "$SHARED/current" ]; then
     else
         read -r version < "$SHARED/current" || true
         if valid_version "${version:-}" && [ -x "$SHARED/$version/sentry" ]; then
-            exec "$SHARED/$version/sentry" "$@"
+            bin="$SHARED/$version/sentry"
+        else
+            echo "sentry: shared version \`${version:-}\` is missing, running the image's (\`devsandbox update sentry\` fixes it)" >&2
         fi
-        echo "sentry: shared version \`${version:-}\` is missing, running the image's (\`devsandbox update sentry\` fixes it)" >&2
     fi
 fi
 
-exec "$BAKED/sentry" "$@"
+# sentry warns on every call when its CA comes from NODE_EXTRA_CA_CERTS (the
+# broker's CA, set by devsandbox), but not when it's its stored default:
+# store it once per path.
+if [ -n "${NODE_EXTRA_CA_CERTS:-}" ]; then
+    config="${SENTRY_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/sentry}"
+    marker="$config/.devsandbox-ca"
+    if [ "$(cat "$marker" 2>/dev/null)" != "$NODE_EXTRA_CA_CERTS" ] \
+        && "$bin" cli defaults ca-cert "$NODE_EXTRA_CA_CERTS" >/dev/null 2>&1; then
+        printf '%s\n' "$NODE_EXTRA_CA_CERTS" > "$marker" 2>/dev/null || true
+    fi
+fi
+
+exec "$bin" "$@"
