@@ -1,11 +1,11 @@
 #!/bin/sh
-# gh-update <shared bin dir> [version]: run on the HOST. Puts gh <version> (a
-# release like 2.105.0, default latest) in <dir>/<version>/gh, checked
-# against the release's gh_<version>_checksums.txt, and makes it the one
-# every sandbox's `gh` launcher runs from its next call. Sandboxes mount the
-# dir read-only, so only the host updates it. `gh-update <dir> 2.104.0` also
-# rolls back. Linux binaries for the host's arch; GH_UPDATE_ARCH=amd64|arm64
-# picks another (a VM's).
+# gh-update <shared bin dir> [version]: the command of the feature's `gh`
+# update, which devsandbox runs (`devsandbox update gh [version]`, and on its
+# schedule) in a throwaway container from the sandbox's image with only the
+# dir writable. Puts gh <version> (a release like 2.105.0, default latest) in
+# <dir>/<version>/gh, checked against the release's gh_<version>_checksums.txt,
+# and makes it the one every sandbox's `gh` launcher runs from its next call.
+# Sandboxes mount the dir read-only. A version also rolls back.
 #
 # gh-update --bake <version>: what install.sh runs at image build, as root:
 # the image's own gh in /usr/local/lib/gh, the launcher's fallback.
@@ -37,12 +37,12 @@ sha256() {
 # fetch <version or latest> <dir>: gh into <dir>/gh, the resolved version
 # into <dir>/version.
 fetch() {
-    case "${GH_UPDATE_ARCH:-$(uname -m)}" in
+    case "$(uname -m)" in
         x86_64 | amd64) arch=amd64 ;;
         aarch64 | arm64) arch=arm64 ;;
         armv7l | armv7 | armv6l | armv6) arch=armv6 ;;
         i686 | i386 | 386) arch=386 ;;
-        *) fail "no gh binary for ${GH_UPDATE_ARCH:-$(uname -m)}" ;;
+        *) fail "no gh binary for $(uname -m)" ;;
     esac
     version=${1#v}
     if [ "$version" = latest ]; then
@@ -76,7 +76,7 @@ fi
 shared=${1:?usage: gh-update <shared bin dir> [version]}
 spec=${2:-latest}
 [ -d "$shared" ] || fail "$shared is not a directory"
-[ -w "$shared" ] || fail "$shared is not writable here (run gh-update on the host)"
+[ -w "$shared" ] || fail "$shared is not writable here (\`devsandbox update gh\` runs gh-update with it writable)"
 
 # Downloaded next to its final place (same filesystem), then renamed in.
 tmp=$(mktemp -d "$shared/.update.XXXXXX")
@@ -107,5 +107,5 @@ done
 if [ "$previous" = "$version" ]; then
     echo "gh-update: $version already current"
 else
-    echo "gh-update: ${previous:-none} -> $version (every sandbox mounting $shared)"
+    echo "gh-update: ${previous:-none} -> $version (every sandbox, from its next gh call)"
 fi

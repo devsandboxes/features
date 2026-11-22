@@ -21,6 +21,7 @@ check "baked version recorded" "gh --version | grep -qF \"gh version \$(cat /usr
 check "gh --help" "gh --help >/dev/null"
 check "owned by root" "[ \"\$(stat -c %u $bin)\" = 0 ] && [ \"\$(stat -c %u /usr/local/bin/gh)\" = 0 ]"
 check "not writable by the user" "[ \"\$(id -u)\" = 0 ] || { [ ! -w $bin ] && [ ! -w /usr/local/bin/gh ]; }"
+check "the update's command installed" "[ -x /usr/local/lib/gh/gh-update ] && [ \"\$(stat -c %u /usr/local/lib/gh/gh-update)\" = 0 ]"
 check "telemetry off" "[ \"\$GH_TELEMETRY\" = false ]"
 check "no token baked in" "[ -z \"\${GH_TOKEN:-}\" ] && [ -z \"\${GITHUB_TOKEN:-}\" ] && [ ! -e \"\$HOME/.config/gh/hosts.yml\" ]"
 check "no shared bin dir: the image's gh" "[ ! -e /var/lib/devsandbox/gh/bin ]"

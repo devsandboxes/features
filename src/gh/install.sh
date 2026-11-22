@@ -1,8 +1,9 @@
 #!/bin/sh
 # Installs gh's prebuilt Linux binary from its GitHub release, checked against
 # the release's gh_<version>_checksums.txt, into /usr/local/lib/gh, with the
-# `gh` launcher (it runs the version gh-update made current in a mounted
-# shared bin dir, else this one). The token is devsandbox's business, not
+# `gh` launcher (it runs the version gh-update made current in the shared bin
+# dir, else this one) and gh-update, the command devsandbox's `gh` update runs
+# in a container from this image. The token is devsandbox's business, not
 # this script's: the claim in devcontainer-feature.json has the sandbox's gh
 # and git reach GitHub through devsandbox's broker with a phantom token.
 set -eu
@@ -56,5 +57,7 @@ else
     sh ./gh-update.sh --bake "$VERSION"
 fi
 install -m 0755 gh-launcher.sh /usr/local/bin/gh
+# After the bake: a version change empties $BAKED.
+install -m 0755 gh-update.sh "$BAKED/gh-update"
 
 echo "gh feature: installed gh $(cat "$BAKED/version")"

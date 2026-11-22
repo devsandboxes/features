@@ -1,8 +1,8 @@
 #!/bin/sh
 # Installed as /usr/local/bin/gh. Runs the gh that gh-update made current in
-# the shared bin dir, when the sandbox mounts one (read-only: the host
-# updates it), so an update reaches every sandbox without a rebuild; else
-# the image's own.
+# the shared bin dir (mounted read-only: only devsandbox's `gh` update writes
+# it), so an update reaches every sandbox without a rebuild; else the image's
+# own.
 SHARED=/var/lib/devsandbox/gh/bin
 BAKED=/usr/local/lib/gh
 
@@ -21,7 +21,7 @@ if [ -e "$SHARED/current" ]; then
         if valid_version "${version:-}" && [ -x "$SHARED/$version/gh" ]; then
             exec "$SHARED/$version/gh" "$@"
         fi
-        echo "gh: shared version \`${version:-}\` is missing, running the image's (gh-update on the host fixes it)" >&2
+        echo "gh: shared version \`${version:-}\` is missing, running the image's (\`devsandbox update gh\` fixes it)" >&2
     fi
 fi
 

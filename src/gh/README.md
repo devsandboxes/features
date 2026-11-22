@@ -1,151 +1,123 @@
 # gh
 
-Installs the [GitHub CLI](https://github.com/cli/cli) (`gh`, GitHub's Linux
-release binary, checked against the release's `gh_<version>_checksums.txt`)
-and claims a devsandbox `github` credential, so gh, git and anything else
-talking to GitHub work in the sandbox without the token ever being in it, and
-only on the sandbox's own repos.
+Installs the [GitHub CLI](https://github.com/cli/cli) and gives the sandbox
+GitHub access without the token ever being in it, limited to the sandbox's
+own repos. devsandbox keeps gh up to date in every sandbox.
 
-devsandbox only: the claim is read by devsandbox (`customizations.devsandbox`);
-elsewhere you get a plain gh with no token. Use it instead of
-`ghcr.io/devcontainers/features/github-cli`, not beside it: two gh binaries
-race on `PATH`.
+devsandbox only: elsewhere you get a plain gh with no token. Use it instead
+of `ghcr.io/devcontainers/features/github-cli`, not beside it.
 
-```toml
-[template.base]
-features = { "ghcr.io/devsandboxes/features/gh:1" = {} }
+```yaml
+template:
+  base:
+    features:
+      ghcr.io/devsandboxes/features/gh:1: {}
 ```
 
 ## How it's brokered
 
-The sandbox gets a phantom token (`GH_TOKEN`, `~/.config/gh/hosts.yml`).
-Calls to `api.github.com` and `uploads.github.com` go through the sandbox's
-proxy to devsandbox's credential broker on the host, which checks each one
-against the claim's scopes and the sandbox's repo fence, swaps the phantom
-for the real token and calls GitHub. git to `github.com` takes the same path
-on a proxy port of its own, with devsandbox's credential helper; ssh remotes
-(`git@github.com:`) are rewritten to https. Every call is a line in the
-host's `access.log`. `GH_TELEMETRY=false` is set: gh would otherwise post
-command names and flags to GitHub.
+The sandbox holds a phantom token. devsandbox, on the host, swaps it for the
+real one on each call, after checking the call against the sandbox's scopes
+and repo fence. gh's telemetry is off.
 
-Before the first sandbox with this feature, store the token on the host (the
-credential's name is yours; `--profile` limits it to sandboxes of that
-profile):
+Log the token in once, on the host:
 
 ```sh
-devsandbox login github --feature ghcr.io/devsandboxes/features/gh:1 --profile work
+devsandbox login github --feature ghcr.io/devsandboxes/features/gh:1
 ```
 
-It shows the claim, asks you to approve it, and reads the token (pasted, or
-piped with `--yes`). Before storing it, it calls `GET /user` and says whose
-token it is (`logged in … as alice`); a token GitHub refuses isn't stored. When a later version of this feature changes the claim,
-`devsandbox run` refuses it until you approve the change with
-`devsandbox access approve github`.
+It shows which account the token belongs to before storing it. When a
+feature update changes what the token may be used for, `devsandbox run` asks
+you to approve it.
 
 ## The token
 
-- A **fine-grained personal access token** (`github_pat_…`): on a terminal,
-  the paste login opens GitHub's token page with the permissions below
-  already filled in (`--owner <org>` fills in the resource owner: check it
-  before generating, GitHub may still create it under your user). Select
-  only the repos sandboxes may touch (one owner per token). An expiry header GitHub sends back is recorded, and
-  `devsandbox access ls` warns before it.
-- A **GitHub App user token** (`ghu_…`), for repos spanning owners, from a
-  GitHub App of your own: enable "Device flow" in its settings, give it the
-  repository permissions below and install it on the repos sandboxes may
-  touch. Log in with its device flow:
+A **fine-grained personal access token**, the usual pick. The login opens
+GitHub's token page with the permissions below filled in; select only the
+repos sandboxes may touch:
 
-  ```sh
-  devsandbox login github --feature ghcr.io/devsandboxes/features/gh:1 \
-    --method device --client-id <your GitHub App's client id>
-  ```
+```sh
+devsandbox login github --feature ghcr.io/devsandboxes/features/gh:1 \
+  --method paste --owner acme   # --owner is optional
+```
 
-  App user tokens expire after 8 hours and refresh for 6 months; the broker
-  renews them. A `ghu_…` token can also be pasted.
+A **GitHub App user token**, for repos spread over several owners. Needs a
+GitHub App of your own, with device flow enabled and the permissions below:
 
-- **gh's own OAuth token** (`gho_…`), only as an opt-in, for orgs where you
-  can neither install an app nor get a fine-grained token approved. It
-  reaches every repo your account can: the broker still refuses writes
-  outside the sandbox's repos, but GraphQL reads aren't fenced. Logs in
-  with GitHub CLI's device flow (`repo read:org`), or `gh auth token` piped
-  to `--method paste`:
+```sh
+devsandbox login github --feature ghcr.io/devsandboxes/features/gh:1 \
+  --method device --client-id <your app's client id>
+```
 
-  ```sh
-  devsandbox login github --feature ghcr.io/devsandboxes/features/gh:1 --broad
-  ```
+**gh's own login**, only when your org allows neither of the above. It
+reaches every repo your account can:
 
-  GitHub keeps a limited number of tokens per user and app, so this login
-  and `gh auth login` on other machines can revoke each other's oldest.
+```sh
+devsandbox login github --feature ghcr.io/devsandboxes/features/gh:1 --broad
+```
 
-Classic personal access tokens (`ghp_`) reach every repo you can, and are
-refused.
+Classic tokens (`ghp_…`) are refused.
 
-| Permission    | Level | For                                              |
-| ------------- | ----- | ------------------------------------------------ |
-| Contents      | Write | clone, push, releases, branch updates            |
-| Pull requests | Write | `gh pr`                                          |
-| Issues        | Write | `gh issue`, labels, comments                     |
-| Actions       | Write | `gh run`, `gh workflow`, `gh cache`              |
-| Discussions   | Write | discussions (optional)                           |
-| Metadata      | Read  | required by GitHub                               |
+## Permissions
 
-Narrow what a sandbox may do with `access.github.scopes` in its devsandbox
-config: `api.read`, `user.read`, `search.read`, `repo.read`, `actions.read`,
-`actions.write`, `pr.write`, `pr.merge`, `issues.write`, `discussions.write`,
-`git.push`, `releases.write`.
+What the fine-grained token (or your GitHub App) needs, and which gh
+commands use each. devsandbox's login page fills them in.
+
+| Permission      | Level | Used by                                       |
+| --------------- | ----- | --------------------------------------------- |
+| Contents        | Write | `git clone`/`push`, `gh release`, `gh pr merge` |
+| Pull requests   | Write | `gh pr`                                       |
+| Issues          | Write | `gh issue`, `gh label`                        |
+| Actions         | Write | `gh run`, `gh workflow`, `gh cache`           |
+| Checks          | Read  | `gh pr checks`                                |
+| Commit statuses | Read  | `gh pr checks`                                |
+| Discussions     | Write | discussions (optional)                        |
+| Metadata        | Read  | required by GitHub                            |
+
+To give one sandbox less, list what it may do in `access.github.scopes`
+(e.g. `[repo.read, pr.write]`).
 
 ## The repo fence
 
-A sandbox's credential reaches the repos its folders' remotes named when each
-folder was first run, plus `access.github.repos`:
+- The fence holds the repos of the sandbox's folders, plus any you list in
+  `access.github.repos`.
 
-```toml
-[sandbox.web.access.github]
-repos = ["acme/shared-lib"]
-scopes = ["repo.read", "pr.write", "git.push"]
+- Outside it, reads go to GitHub without a token (public repos work,
+  private ones don't) and writes are refused.
+
+- GraphQL reads (much of `gh pr list`, `gh repo view`) still pass under the
+  token's own reach, so keep the token narrow.
+
+- Never allowed: deploy, ssh and GPG keys, webhooks, collaborators, and
+  writing Actions secrets.
+
+```yaml
+sandbox:
+  web:
+    access:
+      github:
+        repos: [acme/shared-lib]
+        scopes: [repo.read, pr.write, git.push]
 ```
 
-Outside the fence, calls go to GitHub with no token at all: public repos
-read over REST and git as they would anonymously (`gh api`, `gh release
-download`, `gh search`, clones of public dependencies), private ones answer
-404, and every write is refused with a message naming `access.github.repos`.
-GraphQL reads (most of `gh repo view`, `gh pr list`, `gh issue list`, `gh
-auth status`) pass under the token's own reach, fence or not: keep the token
-down to the repos sandboxes may touch. GraphQL writes (`gh pr create`, `gh
-issue comment`, `gh pr merge`, …) are checked against the fence by every id
-they name.
+## Updating
 
-Never allowed, whatever the config: deploy keys, ssh and GPG keys, webhooks,
-adding collaborators or org members, runner registration tokens, writing
-Actions secrets, and token-minting routes. Not covered by this version's
-scope table, so refused: creating, renaming, archiving, deleting or editing
-repos' settings (`gh repo create|edit|rename|archive|delete`), Actions
-variables and secrets, gists writes, Projects, codespaces, and `gh repo fork`
-(its target organization isn't attributed yet).
+devsandbox updates gh in every sandbox weekly, with no setup and no rebuild.
+To change how often (or `never`):
 
-## Updating gh without a rebuild
-
-The image's gh is the `version` option's. To update every sandbox at once,
-mount a shared bin dir read-only and run `gh-update` on the host against it:
-
-```toml
-[template.base]
-mounts = [{ type = "bind", source = "${sharedVolumes}/gh-bin", target = "/var/lib/devsandbox/gh/bin", readonly = true }]
+```yaml
+updates:
+  gh: 1d
 ```
+
+To update now, or roll back to a release (with `gh: never` to keep it):
 
 ```sh
-curl -fsSLo gh-update.sh https://raw.githubusercontent.com/devsandboxes/features/main/src/gh/gh-update.sh
-sh gh-update.sh ~/.devsandboxes/shared-volumes/gh-bin          # latest
-sh gh-update.sh ~/.devsandboxes/shared-volumes/gh-bin 2.104.0  # a release, or a rollback
+devsandbox update gh
+devsandbox update gh 2.104.0
 ```
 
-It downloads the release for the host's arch (`GH_UPDATE_ARCH=amd64|arm64`
-for another), checks it against the release's checksums, puts it in
-`<dir>/<version>/` and makes it current; the launcher (`/usr/local/bin/gh`)
-runs it from the next call. A dir the sandbox can write is ignored (the
-launcher runs the image's gh and says so). The claim stays this feature
-version's: a route a newer gh calls that the scope table doesn't cover is
-refused until a feature release covers it.
+Sandboxes can't change their gh: the update is mounted read-only.
 
 ## Options
 
