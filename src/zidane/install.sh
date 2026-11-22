@@ -1,8 +1,9 @@
 #!/bin/sh
 # Installs zidane-tui's prebuilt binary from the npm registry (no node needed)
-# into /usr/local/lib/zidane, the `zidane` launcher and `zidane-update` (the
-# launcher runs the version zidane-update made current in the shared bin dir,
-# else this one), and links the remote user's zidane dirs to the fixed mount
+# into /usr/local/lib/zidane, with the `zidane` launcher (it runs the version
+# zidane-update made current in the shared bin dir, else this one) and
+# zidane-update, the command devsandbox's `zidane` update runs in a container
+# from this image (off PATH: sandboxes don't update), and links the remote user's zidane dirs to the fixed mount
 # targets declared in devcontainer-feature.json. Mount targets can't depend on the user's home
 # (feature mounts are static), hence the symlinks.
 set -eu
@@ -51,9 +52,10 @@ fi
 
 # --- binary -----------------------------------------------------------------
 
-install -m 0755 zidane-update.sh /usr/local/bin/zidane-update
-/usr/local/bin/zidane-update --bake "$VERSION"
+sh ./zidane-update.sh --bake "$VERSION"
 install -m 0755 zidane-launcher.sh /usr/local/bin/zidane
+# After the bake, which creates $BAKED.
+install -m 0755 zidane-update.sh /usr/local/lib/zidane/zidane-update
 
 # --- dirs -------------------------------------------------------------------
 
@@ -63,8 +65,9 @@ home="${_REMOTE_USER_HOME:-$(getent passwd "$user" | cut -d: -f6)}"
 group=$(id -gn "$user")
 
 # The mount targets, for a container started without them (plain devcontainer
-# CLI, tests): zidane still works, just without persistence.
-for d in config data state cache skills extensions bin; do
+# CLI, tests): zidane still works, just without persistence. Not the bin dir:
+# without it the image's zidane runs.
+for d in config data state cache skills extensions; do
     install -d -o "$user" -g "$group" "$MOUNT_ROOT/$d"
 done
 

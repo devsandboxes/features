@@ -1,16 +1,18 @@
 #!/bin/sh
-# zidane-update [version]: installs zidane-tui <version> (an npm version or
-# dist-tag, default latest) into the shared bin dir and makes it the one every
-# sandbox's `zidane` launcher runs from its next start. Running sessions keep
-# their binary. `zidane-update 1.2.3` also rolls back.
+# zidane-update <shared bin dir> [version]: the command of the feature's
+# `zidane` update, which devsandbox runs (`devsandbox update zidane [version]`,
+# and on its schedule) in a throwaway container from the sandbox's image with
+# only the dir writable. Puts zidane-tui <version> (an npm version or
+# dist-tag, default latest) in <dir>/<version>/zidane and makes it the one
+# every sandbox's `zidane` launcher runs from its next start. Sandboxes mount
+# the dir read-only. A version also rolls back.
 #
 # zidane-update --bake <version>: what install.sh runs at image build, as
-# root: the image's own copy, in /usr/local/lib/zidane, which seeds the shared
-# dir on first run and is the fallback without it.
+# root: the image's own copy in /usr/local/lib/zidane, the launcher's
+# fallback.
 set -eu
 
 REGISTRY=https://registry.npmjs.org
-SHARED=/var/lib/devsandbox/zidane/bin
 BAKED=/usr/local/lib/zidane
 
 fail() {
@@ -18,7 +20,7 @@ fail() {
     exit 1
 }
 
-# A version names a dir under $SHARED: no `/`, no leading dot.
+# A version names a dir: no `/`, no leading dot.
 valid_version() {
     case "$1" in
         "" | .* | *[!A-Za-z0-9._+-]*) return 1 ;;
@@ -46,7 +48,7 @@ fetch() {
     echo "zidane-update: downloading $tarball" >&2
     curl -fsSL -o "$2/pkg.tgz" "$tarball"
     echo "$shasum  $2/pkg.tgz" | sha1sum -c - >/dev/null || fail "checksum mismatch for $tarball"
-    tar -xzf "$2/pkg.tgz" -C "$2" package/bin/zidane
+    tar -xzof "$2/pkg.tgz" -C "$2" package/bin/zidane
     mv "$2/package/bin/zidane" "$2/zidane"
     chmod 0755 "$2/zidane"
     rm -rf "$2/pkg.tgz" "$2/package"
@@ -59,29 +61,36 @@ if [ "${1:-}" = --bake ]; then
     exit 0
 fi
 
-spec=${1:-latest}
-[ -d "$SHARED" ] || fail "$SHARED is missing (not a devsandbox container?)"
-[ -w "$SHARED" ] || fail "$SHARED is not writable"
+shared=${1:?usage: zidane-update <shared bin dir> [version]}
+spec=${2:-latest}
+case "$spec" in
+    "" | .* | -* | *[!A-Za-z0-9._+-]*) fail "bad version \`$spec\` (an npm version or dist-tag)" ;;
+esac
+[ -d "$shared" ] || fail "$shared is not a directory"
+[ -w "$shared" ] || fail "$shared is not writable here (\`devsandbox update zidane\` runs zidane-update with it writable)"
 
 # Downloaded next to its final place (same filesystem), then renamed in.
-tmp=$(mktemp -d "$SHARED/.update.XXXXXX")
+tmp=$(mktemp -d "$shared/.update.XXXXXX")
 trap 'rm -rf "$tmp"' EXIT
+# mktemp's 0700 would keep the sandbox's remote user from running it.
+chmod 0755 "$tmp"
 fetch "$spec" "$tmp"
 read -r version < "$tmp/version"
 rm -f "$tmp/version"
-# Another sandbox may have installed it meanwhile: keep theirs.
-[ -d "$SHARED/$version" ] || mv -T "$tmp" "$SHARED/$version" 2>/dev/null || true
+if [ ! -d "$shared/$version" ]; then
+    mv "$tmp" "$shared/$version"
+fi
 
 previous=""
-if [ -r "$SHARED/current" ]; then
-    read -r previous < "$SHARED/current" || true
+if [ -r "$shared/current" ]; then
+    read -r previous < "$shared/current" || true
 fi
-printf '%s\n' "$version" > "$SHARED/.current.$$"
-mv -f "$SHARED/.current.$$" "$SHARED/current"
+printf '%s\n' "$version" > "$shared/.current.$$"
+mv -f "$shared/.current.$$" "$shared/current"
 
-# Keep the new and the previous version (a launcher may be about to start it);
-# older ones go. Sessions running one keep it until they exit.
-for dir in "$SHARED"/*/; do
+# Keep the new and the previous version (a launcher may be about to start
+# it); older ones go. Running sessions keep theirs until they exit.
+for dir in "$shared"/*/; do
     name=$(basename "$dir")
     [ "$name" = "$version" ] || [ "$name" = "$previous" ] || rm -rf "$dir"
 done

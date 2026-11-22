@@ -1,15 +1,15 @@
 {
     "id": "zidane",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "name": "zidane",
-    "description": "Installs the zidane agent TUI and persists its config, state and per-instance data under devsandbox's shared volumes; zidane-update updates it in every sandbox without a rebuild. devsandbox only: mounts use ${sharedVolumes} and ${instance}.",
+    "description": "Installs the zidane agent TUI and persists its config, state and per-instance data under devsandbox's shared volumes. devsandbox keeps zidane updated in every sandbox without a rebuild. devsandbox only: mounts use ${sharedVolumes} and ${instance}.",
     "documentationURL": "https://github.com/devsandboxes/features/tree/main/src/zidane",
     "options": {
         "version": {
             "type": "string",
             "proposals": ["latest"],
             "default": "latest",
-            "description": "zidane-tui version baked into the image (an npm version or dist-tag). It seeds the shared bin dir on first run; after that zidane-update picks the version."
+            "description": "zidane-tui version baked into the image (an npm version or dist-tag). The version devsandbox's `zidane` update made current runs instead."
         }
     },
     "containerEnv": {
@@ -49,9 +49,21 @@
         {
             "source": "${sharedVolumes}/zidane-bin",
             "target": "/var/lib/devsandbox/zidane/bin",
-            "type": "bind"
+            "type": "bind",
+            "readonly": true
         }
     ],
+    "customizations": {
+        "devsandbox": {
+            "updates": [
+                {
+                    "name": "zidane",
+                    "mount": "/var/lib/devsandbox/zidane/bin",
+                    "command": ["/usr/local/lib/zidane/zidane-update", "/var/lib/devsandbox/zidane/bin"]
+                }
+            ]
+        }
+    },
     "installsAfter": [
         "ghcr.io/devcontainers/features/common-utils"
     ]
