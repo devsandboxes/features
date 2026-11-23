@@ -1,6 +1,6 @@
 {
     "id": "sentry",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "name": "Sentry's CLI, brokered by devsandbox",
     "description": "Installs Sentry's CLI (`sentry`) and claims a devsandbox `sentry` credential: sentry reaches Sentry through devsandbox's credential broker, so the sandbox holds a phantom token, never the real one. devsandbox keeps sentry updated in every sandbox without a rebuild. devsandbox only: log the credential in with `devsandbox login`.",
     "documentationURL": "https://github.com/devsandboxes/features/tree/main/src/sentry",
@@ -17,8 +17,7 @@
         {
             "type": "bind",
             "source": "${sharedVolumes}/sentry-bin",
-            "target": "/var/lib/devsandbox/sentry/bin",
-            "readonly": true
+            "target": "/var/lib/devsandbox/sentry/bin"
         }
     ],
     "customizations": {

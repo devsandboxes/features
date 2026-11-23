@@ -1,6 +1,6 @@
 {
     "id": "zidane",
-    "version": "2.1.0",
+    "version": "2.1.1",
     "name": "zidane",
     "description": "Installs the zidane agent TUI and persists its config, state and per-instance data under devsandbox's shared volumes. devsandbox keeps zidane updated in every sandbox without a rebuild. devsandbox only: mounts use ${sharedVolumes} and ${instance}.",
     "documentationURL": "https://github.com/devsandboxes/features/tree/main/src/zidane",
@@ -49,8 +49,7 @@
         {
             "source": "${sharedVolumes}/zidane-bin",
             "target": "/var/lib/devsandbox/zidane/bin",
-            "type": "bind",
-            "readonly": true
+            "type": "bind"
         }
     ],
     "customizations": {

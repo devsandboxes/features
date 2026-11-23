@@ -1,6 +1,6 @@
 {
     "id": "gh",
-    "version": "1.3.0",
+    "version": "1.3.1",
     "name": "gh, brokered and repo-fenced by devsandbox",
     "description": "Installs the GitHub CLI and claims a devsandbox `github` credential: gh, git and anything else talking to GitHub reach it through devsandbox's credential broker, fenced to the sandbox's own repos, so the sandbox holds a phantom token, never the real one. devsandbox keeps gh updated in every sandbox without a rebuild. devsandbox only: log the credential in with `devsandbox login`.",
     "documentationURL": "https://github.com/devsandboxes/features/tree/main/src/gh",
@@ -17,8 +17,7 @@
         {
             "type": "bind",
             "source": "${sharedVolumes}/gh-bin",
-            "target": "/var/lib/devsandbox/gh/bin",
-            "readonly": true
+            "target": "/var/lib/devsandbox/gh/bin"
         }
     ],
     "customizations": {
