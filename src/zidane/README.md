@@ -5,7 +5,7 @@ Installs the [zidane](https://github.com/Tahul/zidane) agent TUI
 node needed) and persists its dirs under devsandbox's shared volumes.
 devsandbox keeps it updated in every sandbox, without a rebuild or a restart.
 
-devsandbox only: the mounts use `${sharedVolumes}` and `${instance}`.
+devsandbox ≥ 0.11 only: the mounts use `${sharedVolumes}` and `${instance}`.
 
 ```yaml
 features:

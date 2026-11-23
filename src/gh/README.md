@@ -4,7 +4,7 @@ Installs the [GitHub CLI](https://github.com/cli/cli) and gives the sandbox
 GitHub access without the token ever being in it, limited to the sandbox's
 own repos. devsandbox keeps gh up to date in every sandbox.
 
-devsandbox only: elsewhere you get a plain gh with no token. Use it instead
+devsandbox ≥ 0.11 only: elsewhere you get a plain gh with no token. Use it instead
 of `ghcr.io/devcontainers/features/github-cli`, not beside it.
 
 ```yaml

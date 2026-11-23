@@ -4,7 +4,7 @@ Installs [Sentry's CLI](https://cli.sentry.dev) (`sentry`) and gives the
 sandbox Sentry access without the token ever being in it. devsandbox keeps
 sentry up to date in every sandbox.
 
-devsandbox only: elsewhere you get a plain sentry with no token.
+devsandbox ≥ 0.11 only: elsewhere you get a plain sentry with no token.
 
 ```yaml
 template:
