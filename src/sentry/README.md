@@ -4,7 +4,7 @@ Installs [Sentry's CLI](https://cli.sentry.dev) (`sentry`) and gives the
 sandbox Sentry access without the token ever being in it. devsandbox keeps
 sentry up to date in every sandbox.
 
-devsandbox ≥ 0.11 only: elsewhere you get a plain sentry with no token.
+devsandbox ≥ 0.11.1 only: elsewhere you get a plain sentry with no token.
 
 ```yaml
 template:
@@ -21,23 +21,41 @@ devsandbox, which swaps the phantom for the real token on each call, after
 checking the call against the sandbox's scopes. sentry's telemetry and
 update check are off.
 
-Log the token in once, on the host. With Sentry's own login page (the
-device flow sentry's `auth login` uses):
+Log the token in once, on the host, naming the orgs sandboxes may use
+(`--org`, repeatable). With Sentry's own login page (the device flow
+sentry's `auth login` uses):
 
 ```sh
-devsandbox login sentry --feature ghcr.io/devsandboxes/features/sentry:1 --method device
+devsandbox login sentry --feature ghcr.io/devsandboxes/features/sentry:1 --method device --org my-org
 ```
 
 Or with a user auth token (`sntryu_…`, from Sentry's _Personal Tokens_
 page, which the login opens):
 
 ```sh
-devsandbox login sentry --feature ghcr.io/devsandboxes/features/sentry:1 --method paste
+devsandbox login sentry --feature ghcr.io/devsandboxes/features/sentry:1 --method paste --org my-org
 ```
 
 It shows which account the token belongs to before storing it. When a
 feature update changes what the token may be used for, `devsandbox run` asks
 you to approve it.
+
+## Orgs
+
+A Sentry token reaches every org its account is in. devsandbox refuses
+any call naming an org the credential doesn't list, by slug or id, and
+sentry's org list shows only those. A credential listing none has every
+org call refused: add `orgs = ["my-org"]` to its entry in devsandbox's
+`credentials.toml`, or log in again with `--org`. A sandbox can narrow
+the list further:
+
+```yaml
+sandbox:
+  web:
+    access:
+      sentry:
+        orgs: [my-org]
+```
 
 ## Scopes
 
