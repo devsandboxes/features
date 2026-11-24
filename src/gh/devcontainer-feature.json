@@ -1,6 +1,6 @@
 {
     "id": "gh",
-    "version": "1.3.2",
+    "version": "1.3.3",
     "name": "gh, brokered and repo-fenced by devsandbox",
     "description": "Installs the GitHub CLI and claims a devsandbox `github` credential: gh, git and anything else talking to GitHub reach it through devsandbox's credential broker, fenced to the sandbox's own repos, so the sandbox holds a phantom token, never the real one. devsandbox keeps gh updated in every sandbox without a rebuild. devsandbox only: log the credential in with `devsandbox login`.",
     "documentationURL": "https://github.com/devsandboxes/features/tree/main/src/gh",
@@ -164,6 +164,8 @@
                                 "GET /repos/{repo}/pulls/{number}/reviews",
                                 "GET /repos/{repo}/pulls/{number}/requested_reviewers",
                                 "GET /repos/{repo}/pulls/comments",
+                                "GET /repos/{repo}/stacks",
+                                "GET /repos/{repo}/stacks/{stack_number}",
                                 "GET /repos/{repo}/releases",
                                 "GET /repos/{repo}/releases/latest",
                                 "GET /repos/{repo}/releases/tags/{tag}",
@@ -229,6 +231,9 @@
                                 "DELETE /repos/{repo}/pulls/{number}/requested_reviewers",
                                 "POST /repos/{repo}/pulls/{number}/reviews",
                                 "POST /repos/{repo}/pulls/{number}/comments",
+                                "POST /repos/{repo}/stacks",
+                                "POST /repos/{repo}/stacks/{stack_number}/add",
+                                "POST /repos/{repo}/stacks/{stack_number}/unstack",
                                 "graphql mutation createPullRequest",
                                 "graphql mutation updatePullRequest",
                                 "graphql mutation closePullRequest",
@@ -245,6 +250,8 @@
                         "pr.merge": {
                             "routes": [
                                 "PUT /repos/{repo}/pulls/{number}/merge",
+                                "PUT /repos/{repo}/pulls/{number}/merge-async",
+                                "GET /repos/{repo}/pulls/{number}/merge-async/{uuid}",
                                 "graphql mutation mergePullRequest",
                                 "graphql mutation enablePullRequestAutoMerge",
                                 "graphql mutation disablePullRequestAutoMerge",
